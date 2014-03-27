@@ -8,8 +8,6 @@
 #include <string.h>  
 #include <stdio.h>
 #include <time.h>
-#include <pwd.h>
-#include <grp.h>
 
 #define MAX_DEPTH 2
 
@@ -39,8 +37,6 @@ void print(struct dirent *dir, struct stat *buf, int depth)
 	{
 		print_mode(buf->st_mode);
 		printf("%d ", (int)buf->st_nlink);
-		//printf("%s ", uid_to_name(buf->st_uid));
-		//printf("%s ", gid_to_name(buf->st_gid));
 		printf("%.12s ", 4+ctime(&(buf->st_mtime)));
 		printf("%ld ", (long)buf->st_size); 
 	}
@@ -48,7 +44,7 @@ void print(struct dirent *dir, struct stat *buf, int depth)
 	return;
 }
 
-//возвращает 0, если не поменялась директория. 1 иначе
+//0-bad, else 1
 int ls( char *dirname, int depth)
 {	
 	struct stat buf;
