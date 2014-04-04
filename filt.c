@@ -1,72 +1,56 @@
 #include <stdio.h>
 #include <unistd.h>
 
+const int nbyte=5000;
+
 int main(int argc, char **argv)
 {
 	if (argc < 2) {
-		fprintf(stderr, "Incorrect arguments!\n\tUsage: %s PROGRAM [...]\n", argv[0]);
-		return 2;
-	}
-
-	int fd[2];
-	if (pipe(fd)) {
-		perror("Pipe creation error");
+		printf("error: wrong count arg\n");
 		return 1;
 	}
 
-	pid_t pid = fork();
-	if (pid == 0) {	// Код ребёнка
+	int fd[2];
+	if (pipe(fd)<0) {
+		perror("error: Pipe");
+		return 1;
+	}
+	int pid = fork();
+	if (pid == 0) {	
 		close(fd[0]);
-
-		// Перенаправление stdout
-		close(STDOUT_FILENO);
-		{
-			int dup2_status = dup2(fd[1], STDOUT_FILENO);
-			close(fd[1]);
-			if (dup2_status < 0) {
-				perror("Dup2 error");
-				return 1;
-			}
-		}
-
-		if (execvp(argv[1], argv + 1)) {
-			perror("Execvp error");
+		
+		if (dup2(fd[1],1) < 0) {
+			perror("error: dup2");
 			return 1;
 		}
-	} else {	// Код родителя
+
+		if (execvp(argv[1], argv+1)<0) {
+			perror("error: execvp");
+			return 1;
+		}
+	} 
+	else {
 		if (pid < 0) {
-			perror("Fork error");
+			perror("error: fork");
 			close(fd[0]);
 			close(fd[1]);
 			return 1;
 		}
-
 		close(fd[1]);
 
-		FILE *child_data = fdopen(fd[0], "r");
+		char buff [nbyte];
 
-		// Получение данных и подсчёт количества строк
-		size_t lines = 0;
-		char new_line = 1;
-		while (1) {
-			int ch = getc(child_data);
-			if (feof(child_data)) break;
-
-			putchar(ch);
-			if (ch == '\n') {
-				++lines;
-				new_line = 1;
-			} else new_line = 0;
+		int num_str=0;
+		int temp_n;
+		while ((temp_n=read(fd[0], buff, nbyte))!=0) {
+			write (1,buff,temp_n);
+			for(int i=0; i<temp_n; i++)
+				if(buff[i]=='\n')
+					num_str+=1;
 		}
-		fclose(child_data);
 		close(fd[0]);
-
-		if (!new_line) {
-			++lines;
-			printf("\n----------------------------------------\nLines:  %zu  (new line added)\n", lines);
-		} else
-			printf("----------------------------------------\nLines:  %zu\n", lines);
-	}
-
-	return 0;
+		
+		printf("\n------\n num_of_str: %d\n",num_str);
+		return 0;
+		}
 }
