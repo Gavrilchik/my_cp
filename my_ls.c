@@ -15,8 +15,14 @@ int r=0, l=0;
 
 void print_mode(int mode)
 {
-	char str[11]="----------\0";
+	char str[11]="----------";
 	if (S_ISDIR(mode)) str[0]='d';
+	else if (S_ISBLK(mode)) str[0] = 'b';
+	else if (S_ISCHR(mode)) str[0] = 'c';
+	else if (S_ISSOCK(mode)) str[0] = 's';
+	else if (S_ISFIFO(mode)) str[0] = 'f';
+	else if (S_ISLNK(mode)) str[0] = 'l';
+	
 	if (mode & S_IRUSR) str[1]='r';
 	if (mode & S_IWUSR) str[2]='w';
 	if (mode & S_IXUSR) str[3]='x';
@@ -81,15 +87,19 @@ int ls( char *dirname, int depth)
 
 int main(int argc, char **argv)
 {
+	int here = 1;
 	for (int i=1; i<argc; ++i)
 	{
 		if(strcmp(argv[i],"-l")==0) l=1;
 		else if(strcmp(argv[i],"-r")==0) r=1;
-		else if (chdir(argv[i])<0){
-			perror(argv[i]);
-			_exit(1);
+		else {
+			here = 0;
+			if (ls(argv[i],0)==0){
+				perror(argv[i]);
+				_exit(1);
+			}
 		}
 	}
-	ls("./", 0);
+	if (here==1) ls(".",0);
 	_exit(0);
 }
