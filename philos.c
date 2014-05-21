@@ -2,22 +2,44 @@
 #include <stdlib.h>
 #include <unistd.h>
 #include <pthread.h>
+#include <sys/time.h>
 
 int eat_count, philosophers_count;	// Счётчики
 pthread_t* philosophers;	// Философы
 int* ids;	// Идентификаторы философов
 pthread_mutex_t* forks;	// Вилки
 
+double* waiting_time;
+
+double timer_start()
+{
+	struct timeval tv_start;
+	gettimeofday(&tv_start, NULL);
+	double t_start = (double)tv_start.tv_sec + (double)tv_start.tv_usec / 1000000;
+	return t_start;
+}
+
+double timer_stop(double t_start)
+{
+	struct timeval tv_stop;
+	gettimeofday(&tv_stop, NULL);
+	double t_stop = (double)tv_stop.tv_sec + (double)tv_stop.tv_usec / 1000000;
+	return t_stop - t_start;
+}
+
 void* philosopher(void* p)
 {
 	int id = *(int*)p;	// Идентификатор философа
 	int left_fork = id, right_fork = (id + 1) % philosophers_count;	// Вилки
+	double t_start = -1;
 	
 	for (int i = 0; i < eat_count; ++i) {
 		// Думаем
-		int t = random() % 3 + 1;
-		fprintf(stderr,"Eat number: %d:  Philos number: %d: Thinking for %d seconds.\n", i+1, id, t);
-		sleep(t);
+		if (t_start < 0) t_start = timer_start();	// Засекаем время начала
+		
+		int t = random() % 1000000 + 50;
+		fprintf(stderr,"Eat number: %d:  Philos number: %d: Thinking for %d microseconds.\n", i+1, id, t);
+		usleep(t);
 		
 		pthread_mutex_lock(&forks[left_fork]);	// Захватываем левую вилку
 		if (pthread_mutex_trylock(&forks[right_fork])) {	// Пытаемся захватить правую
@@ -28,9 +50,15 @@ void* philosopher(void* p)
 		}
 		
 		// Едим
-		t = random() % 5 + 1;
-		fprintf(stderr,"Eat number: %d:  Philos number: %d: Eating for %d seconds.\n", i+1, id, t);
-		sleep(t);
+		double t_diff = timer_stop(t_start);	// Останавливаем таймер. Получаем время ожидания вилок
+		t_start = -1;
+		waiting_time[id] += t_diff;
+		
+		fprintf(stderr, "Eat number: %d:  Philos number: %d: Time for trying forks %lf.\n", i+1, id, t_diff);
+		
+		t = random() % 1000000 + 50;
+		fprintf(stderr,"Eat number: %d:  Philos number: %d: Eating for %d microseconds.\n", i+1, id, t);
+		usleep(t);
 		
 		// Освобождаем обе вилки
 		pthread_mutex_unlock(&forks[right_fork]);
@@ -51,6 +79,11 @@ int main(int argc, const char **argv)
 	sscanf(argv[2], "%d", &eat_count);
 	
 	srand(time(NULL));
+	
+	double waiting_time_main[philosophers_count];
+	waiting_time = waiting_time_main;
+	for (int i = 0; i < philosophers_count; ++i)
+		waiting_time[i] = 0;
 	
 	// Выделение памяти для вилок
 	forks = (pthread_mutex_t*)malloc(philosophers_count * sizeof(pthread_mutex_t));
@@ -116,5 +149,10 @@ int main(int argc, const char **argv)
 	free(ids);
 	free(philosophers);
 	free(forks);
+	
+	// Печать отчёта
+	for (int i = 0; i < philosophers_count; ++i)
+		fprintf(stderr, "Philos number: %d Waiting time: %lf.\n",i+1, waiting_time[i]);
+	
 	exit(0);
 }
